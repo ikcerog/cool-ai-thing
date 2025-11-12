@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>UI Test Pattern</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Randomized blurred backdrop (aria-hidden) -->
+  <div id="backdrop" aria-hidden="true"></div>
+  <header class="site-header">
+    <div class="container header-grid">
+      <h1 class="brand">Project Name</h1>
+      <nav class="nav">
+        <a href="#" class="nav-link">Home</a>
+        <a href="#" class="nav-link">Docs</a>
+        <a href="#" class="nav-link">API</a>
+      </nav>
+      <!-- Theme toggle inserted: toggles `theme-dark` class on <html> and persists preference -->
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" aria-label="Toggle dark mode">
+        <!-- sun icon -->
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M12 4V2M12 22v-2M4.22 4.22L3 3M21 21l-1.22-1.22M2 12H4m16 0h2M4.22 19.78L3 21M21 3l-1.22 1.22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        <!-- moon icon -->
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="panel">
+      <h2>Color Palette</h2>
+      <div class="palette">
+        <div class="swatch" style="--bg:var(--accent-600)"><span>#2563EB</span></div>
+        <div class="swatch" style="--bg:var(--accent-400)"><span>#60A5FA</span></div>
+        <div class="swatch" style="--bg:var(--muted-300)"><span>#E5E7EB</span></div>
+        <div class="swatch" style="--bg:var(--danger-500)"><span>#EF4444</span></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Typography</h2>
+      <p class="lead">Lead paragraph — used for intros and summaries.</p>
+      <h3>Heading 3</h3>
+      <p>Body text sample. Use this area to confirm font sizes, line-height, and contrast.</p>
+      <ul class="typ-list">
+        <li>Regular list item</li>
+        <li>Another item</li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h2>Buttons & Controls</h2>
+      <div class="btn-row">
+        <button class="btn primary">Primary</button>
+        <button class="btn secondary">Secondary</button>
+        <button class="btn ghost">Ghost</button>
+        <button class="btn danger">Danger</button>
+      </div>
+
+      <form class="sample-form" aria-label="Sample form">
+        <label>
+          Name
+          <input type="text" placeholder="Your name" />
+        </label>
+        <label>
+          Email
+          <input type="email" placeholder="you@example.com" />
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" />
+          <span>Subscribe</span>
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="btn primary">Submit</button>
+          <button type="reset" class="btn secondary">Reset</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Grid / Cards</h2>
+      <div class="grid">
+        <article class="card">
+          <h4>Card 1</h4>
+          <p>Short description to check spacing and text wrapping.</p>
+        </article>
+        <article class="card">
+          <h4>Card 2</h4>
+          <p>Short description to check spacing and text wrapping.</p>
+        </article>
+        <article class="card">
+          <h4>Card 3</h4>
+          <p>Short description to check spacing and text wrapping.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel small">
+      <h2>Accessibility</h2>
+      <p>Keyboard focus, high-contrast, and aria attributes are important. Tab through interactive controls to verify focus rings.</p>
+      <a href="#" class="link">Sample link</a>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <small>&copy; 2025 Project Name — UI Test Pattern</small>
+    </div>
+  </footer>
+  
+  <script>
+  (function(){
+    const key = 'theme';
+    const root = document.documentElement;
+    const btn = document.getElementById('theme-toggle');
+
+    function apply(isDark){
+      root.classList.toggle('theme-dark', !!isDark);
+      if(btn) btn.setAttribute('aria-pressed', !!isDark);
+    }
+
+    // initial: stored preference -> system preference -> light
+    try{
+      const stored = localStorage.getItem(key);
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const isDark = stored ? stored === 'dark' : prefersDark;
+      apply(isDark);
+    }catch(e){ console.warn('theme init failed', e); }
+
+    if(!btn) return;
+    btn.addEventListener('click', function(){
+      const isDark = root.classList.toggle('theme-dark');
+      try{ localStorage.setItem(key, isDark ? 'dark' : 'light'); }catch(e){}
+      btn.setAttribute('aria-pressed', isDark);
+      // move focus back to button so keyboard users see the state
+      btn.focus();
+    });
+    
+    // Backdrop: randomized safe-ish photo from picsum.photos, low-res then high-res swap
+    (function setupBackdrop(){
+      const el = document.getElementById('backdrop');
+      if(!el) return;
+
+      function pickSeed(){
+        // use time + random for good variation each load
+        return 'bg-' + Math.floor(Math.random()*1e9) + '-' + Date.now();
+      }
+
+      function loadForSize(){
+  // limit requested image sizes so providers don't reject huge dimensions on desktop
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const maxDim = 2000; // cap large desktop sizes (adjustable)
+  const w = Math.min(maxDim, Math.max(800, Math.ceil(window.innerWidth * dpr)));
+  const h = Math.min(maxDim, Math.max(600, Math.ceil(window.innerHeight * dpr)));
+  const seed = Math.floor(Math.random() * 1e9);
+
+        // Providers: each returns { low, high }
+        const providers = [
+          // picsum.photos: seeded images, supports blur
+          function(seed){
+            return {
+              low: `https://picsum.photos/seed/${seed}/${Math.ceil(w/4)}/${Math.ceil(h/4)}?blur=2`,
+              high: `https://picsum.photos/seed/${seed}/${w}/${h}?blur=6`
+            };
+          },
+          // Unsplash Source: random image; use sig to vary; no official blur param but CSS blur applies
+          function(seed){
+            // use 'random' endpoint with sig to vary; provide a generic landscape query
+            return {
+              low: `https://source.unsplash.com/random/${Math.ceil(w/4)}x${Math.ceil(h/4)}?sig=${seed}&landscape`,
+              high: `https://source.unsplash.com/random/${w}x${h}?sig=${seed}&landscape`
+            };
+          }
+        ];
+
+        // attempt providers sequentially until one succeeds for high-res
+        let attempt = 0;
+        function tryProvider(){
+          if(attempt >= providers.length){
+            // all providers failed; keep whatever we have (low-res or none) and leave a subtle fallback
+            console.warn('All backdrop providers failed — keeping fallback gradient.');
+            el.style.backgroundImage = '';
+            el.classList.add('loaded');
+            return;
+          }
+
+          const urls = providers[attempt](seed + attempt);
+          // debug: show which provider and urls are being attempted
+          console.debug('Backdrop provider', attempt, urls);
+
+          // set low-quality quickly and make it visible immediately
+          try{ el.style.backgroundImage = `url('${urls.low}')`; }catch(e){}
+          el.classList.add('loaded');
+
+          const img = new Image();
+          let swapped = false;
+          const highTimeout = setTimeout(function(){ if(!swapped){ console.warn('Backdrop high-res timed out for provider', attempt); img.src = ''; tryNext(); } }, 6000);
+
+          function tryNext(){
+            attempt++; clearTimeout(highTimeout); tryProvider();
+          }
+
+          img.onload = function(){ clearTimeout(highTimeout); if(swapped) return; swapped = true; try{ el.style.backgroundImage = `url('${urls.high}')`; }catch(e){} };
+          img.onerror = function(e){ clearTimeout(highTimeout); console.warn('Backdrop high-res failed to load for provider', attempt, e); tryNext(); };
+          img.src = urls.high;
+        }
+
+        tryProvider();
+      }
+
+      // initial load
+      let lastIsMobile = window.innerWidth < 700;
+      loadForSize();
+
+      // Only regenerate when crossing the mobile/desktop breakpoint (avoid reloads on minor resizes)
+      let resizeTimeout;
+      window.addEventListener('resize', function(){
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(function(){
+          const nowIsMobile = window.innerWidth < 700;
+          if (nowIsMobile !== lastIsMobile) {
+            lastIsMobile = nowIsMobile;
+            loadForSize();
+          }
+        }, 200);
+      });
+
+      // also handle orientation changes but only reload if it crosses the breakpoint
+      window.addEventListener('orientationchange', function(){
+        const nowIsMobile = window.innerWidth < 700;
+        if (nowIsMobile !== lastIsMobile) { lastIsMobile = nowIsMobile; loadForSize(); }
+      });
+    })();
+  })();
+  </script>
+</body>
+</html>
