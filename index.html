@@ -29,6 +29,16 @@
           <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
+      <!-- Auto-refresh control -->
+      <div class="auto-refresh">
+        <label for="auto-refresh" class="sr-only">Auto-refresh interval</label>
+        <select id="auto-refresh" aria-label="Auto-refresh interval">
+          <option value="0">Auto-refresh: Off</option>
+          <option value="60">Auto-refresh: 60s</option>
+          <option value="120">Auto-refresh: 120s</option>
+          <option value="240">Auto-refresh: 240s</option>
+        </select>
+      </div>
     </div>
   </header>
 
@@ -114,130 +124,183 @@
     </div>
   </footer>
   
-  <script>
-  (function(){
-    const key = 'theme';
-    const root = document.documentElement;
-    const btn = document.getElementById('theme-toggle');
+ <script>
+(function(){
+  const key = 'theme';
+  const root = document.documentElement;
+  const btn = document.getElementById('theme-toggle');
 
-    function apply(isDark){
-      root.classList.toggle('theme-dark', !!isDark);
-      if(btn) btn.setAttribute('aria-pressed', !!isDark);
-    }
+  function apply(isDark){
+    root.classList.toggle('theme-dark', !!isDark);
+    if(btn) btn.setAttribute('aria-pressed', !!isDark);
+  }
 
-    // initial: stored preference -> system preference -> light
-    try{
-      const stored = localStorage.getItem(key);
-      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const isDark = stored ? stored === 'dark' : prefersDark;
-      apply(isDark);
-    }catch(e){ console.warn('theme init failed', e); }
+  // initial: stored preference -> system preference -> light
+  try{
+    const stored = localStorage.getItem(key);
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const isDark = stored ? stored === 'dark' : prefersDark;
+    apply(isDark);
+  }catch(e){ console.warn('theme init failed', e); }
 
-    if(!btn) return;
+  if(btn){
     btn.addEventListener('click', function(){
       const isDark = root.classList.toggle('theme-dark');
       try{ localStorage.setItem(key, isDark ? 'dark' : 'light'); }catch(e){}
       btn.setAttribute('aria-pressed', isDark);
-      // move focus back to button so keyboard users see the state
       btn.focus();
     });
-    
-    // Backdrop: randomized safe-ish photo from picsum.photos, low-res then high-res swap
-    (function setupBackdrop(){
-      const el = document.getElementById('backdrop');
-      if(!el) return;
+  }
 
-      function pickSeed(){
-        // use time + random for good variation each load
-        return 'bg-' + Math.floor(Math.random()*1e9) + '-' + Date.now();
+  // --- Auto-refresh dropdown ---
+  (function setupAutoRefresh(){
+    var STORAGE_KEY = 'autoRefreshSec';
+    var select = document.getElementById('auto-refresh');
+    if (!select) return;
+
+    var timerId = null;
+
+    function getSelectedSeconds(){
+      var v = parseInt(select.value, 10);
+      return isNaN(v) ? 0 : Math.max(0, v);
+    }
+
+    function clearTimer(){
+      if (timerId) { clearInterval(timerId); timerId = null; }
+    }
+
+    function applyRefresh(){
+      clearTimer();
+      var secs = getSelectedSeconds();
+      if (secs > 0 && !document.hidden) {
+        timerId = setInterval(function(){ location.reload(); }, secs * 1000);
       }
+    }
 
-      function loadForSize(){
-  // limit requested image sizes so providers don't reject huge dimensions on desktop
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const maxDim = 2000; // cap large desktop sizes (adjustable)
-  const w = Math.min(maxDim, Math.max(800, Math.ceil(window.innerWidth * dpr)));
-  const h = Math.min(maxDim, Math.max(600, Math.ceil(window.innerHeight * dpr)));
-  const seed = Math.floor(Math.random() * 1e9);
+    // Load saved preference (default Off)
+    try {
+      var saved = localStorage.getItem(STORAGE_KEY);
+      if (saved !== null) { select.value = String(parseInt(saved,10) || 0); }
+    } catch(e) { /* ignore */ }
 
-        // Providers: each returns { low, high }
-        const providers = [
-          // picsum.photos: seeded images, supports blur
-          function(seed){
-            return {
-              low: `https://picsum.photos/seed/${seed}/${Math.ceil(w/4)}/${Math.ceil(h/4)}?blur=2`,
-              high: `https://picsum.photos/seed/${seed}/${w}/${h}?blur=6`
-            };
-          },
-          // Unsplash Source: random image; use sig to vary; no official blur param but CSS blur applies
-          function(seed){
-            // use 'random' endpoint with sig to vary; provide a generic landscape query
-            return {
-              low: `https://source.unsplash.com/random/${Math.ceil(w/4)}x${Math.ceil(h/4)}?sig=${seed}&landscape`,
-              high: `https://source.unsplash.com/random/${w}x${h}?sig=${seed}&landscape`
-            };
-          }
-        ];
+    // Apply on load
+    applyRefresh();
 
-        // attempt providers sequentially until one succeeds for high-res
-        let attempt = 0;
-        function tryProvider(){
-          if(attempt >= providers.length){
-            // all providers failed; keep whatever we have (low-res or none) and leave a subtle fallback
-            console.warn('All backdrop providers failed — keeping fallback gradient.');
-            el.style.backgroundImage = '';
-            el.classList.add('loaded');
-            return;
-          }
+    // Persist + apply on change
+    select.addEventListener('change', function(){
+      try { localStorage.setItem(STORAGE_KEY, String(getSelectedSeconds())); } catch(e) {}
+      applyRefresh();
+      select.focus();
+    });
 
-          const urls = providers[attempt](seed + attempt);
-          // debug: show which provider and urls are being attempted
-          console.debug('Backdrop provider', attempt, urls);
+    // Pause when tab hidden; resume when visible
+    document.addEventListener('visibilitychange', function(){
+      if (document.hidden) {
+        clearTimer();
+      } else {
+        applyRefresh();
+      }
+    });
+  })();
 
-          // set low-quality quickly and make it visible immediately
-          try{ el.style.backgroundImage = `url('${urls.low}')`; }catch(e){}
+  // --- Backdrop randomizer ---
+  (function setupBackdrop(){
+    const el = document.getElementById('backdrop');
+    if(!el) return;
+
+    function loadForSize(){
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const maxDim = 2000;
+      const w = Math.min(maxDim, Math.max(800, Math.ceil(window.innerWidth * dpr)));
+      const h = Math.min(maxDim, Math.max(600, Math.ceil(window.innerHeight * dpr)));
+      const seed = Math.floor(Math.random() * 1e9);
+
+      const providers = [
+        function(seed){
+          return {
+            low: `https://picsum.photos/seed/${seed}/${Math.ceil(w/4)}/${Math.ceil(h/4)}?blur=2`,
+            high: `https://picsum.photos/seed/${seed}/${w}/${h}?blur=6`
+          };
+        },
+        function(seed){
+          return {
+            low: `https://source.unsplash.com/random/${Math.ceil(w/4)}x${Math.ceil(h/4)}?sig=${seed}&landscape`,
+            high: `https://source.unsplash.com/random/${w}x${h}?sig=${seed}&landscape`
+          };
+        }
+      ];
+
+      let attempt = 0;
+      function tryProvider(){
+        if(attempt >= providers.length){
+          console.warn('All backdrop providers failed — keeping fallback gradient.');
+          el.style.backgroundImage = '';
           el.classList.add('loaded');
-
-          const img = new Image();
-          let swapped = false;
-          const highTimeout = setTimeout(function(){ if(!swapped){ console.warn('Backdrop high-res timed out for provider', attempt); img.src = ''; tryNext(); } }, 6000);
-
-          function tryNext(){
-            attempt++; clearTimeout(highTimeout); tryProvider();
-          }
-
-          img.onload = function(){ clearTimeout(highTimeout); if(swapped) return; swapped = true; try{ el.style.backgroundImage = `url('${urls.high}')`; }catch(e){} };
-          img.onerror = function(e){ clearTimeout(highTimeout); console.warn('Backdrop high-res failed to load for provider', attempt, e); tryNext(); };
-          img.src = urls.high;
+          return;
         }
 
-        tryProvider();
+        const urls = providers[attempt](seed + attempt);
+        console.debug('Backdrop provider', attempt, urls);
+
+        try{ el.style.backgroundImage = `url('${urls.low}')`; }catch(e){}
+        el.classList.add('loaded');
+
+        const img = new Image();
+        let swapped = false;
+        const highTimeout = setTimeout(function(){
+          if(!swapped){
+            console.warn('Backdrop high-res timed out for provider', attempt);
+            img.src = '';
+            tryNext();
+          }
+        }, 6000);
+
+        function tryNext(){
+          attempt++; clearTimeout(highTimeout); tryProvider();
+        }
+
+        img.onload = function(){
+          clearTimeout(highTimeout);
+          if(swapped) return;
+          swapped = true;
+          try{ el.style.backgroundImage = `url('${urls.high}')`; }catch(e){}
+        };
+        img.onerror = function(e){
+          clearTimeout(highTimeout);
+          console.warn('Backdrop high-res failed to load for provider', attempt, e);
+          tryNext();
+        };
+        img.src = urls.high;
       }
 
-      // initial load
-      let lastIsMobile = window.innerWidth < 700;
-      loadForSize();
+      tryProvider();
+    }
 
-      // Only regenerate when crossing the mobile/desktop breakpoint (avoid reloads on minor resizes)
-      let resizeTimeout;
-      window.addEventListener('resize', function(){
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(function(){
-          const nowIsMobile = window.innerWidth < 700;
-          if (nowIsMobile !== lastIsMobile) {
-            lastIsMobile = nowIsMobile;
-            loadForSize();
-          }
-        }, 200);
-      });
+    let lastIsMobile = window.innerWidth < 700;
+    loadForSize();
 
-      // also handle orientation changes but only reload if it crosses the breakpoint
-      window.addEventListener('orientationchange', function(){
+    let resizeTimeout;
+    window.addEventListener('resize', function(){
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(function(){
         const nowIsMobile = window.innerWidth < 700;
-        if (nowIsMobile !== lastIsMobile) { lastIsMobile = nowIsMobile; loadForSize(); }
-      });
-    })();
+        if (nowIsMobile !== lastIsMobile) {
+          lastIsMobile = nowIsMobile;
+          loadForSize();
+        }
+      }, 200);
+    });
+
+    window.addEventListener('orientationchange', function(){
+      const nowIsMobile = window.innerWidth < 700;
+      if (nowIsMobile !== lastIsMobile) {
+        lastIsMobile = nowIsMobile;
+        loadForSize();
+      }
+    });
   })();
-  </script>
+})();
+</script>
+
 </body>
 </html>
