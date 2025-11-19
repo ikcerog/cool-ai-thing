@@ -107,11 +107,12 @@ body{
 .panel.small{padding:var(--space-sm)}
 
 /* Palette ----------------------------------------------------------- */
-.palette{display:flex; gap:var(--space-sm); align-items:center; margin-top:var(--space-sm)}
+.palette{display:flex; flex-wrap: wrap; gap:var(--space-sm); align-items:center; margin-top:var(--space-sm)}
 .swatch{
-  width:88px; height:64px;
+  height:64px;
   border-radius:8px;
-  display:grid; place-items:end center;
+  /*display:grid; place-items:end center; width:88px; */
+  display: flex;
   padding:8px; color:#fff; font-size:0.8rem; font-weight:600; text-shadow:0 1px 0 rgba(0,0,0,0.18);
 }
 .swatch span{background:rgba(0,0,0,0.18); padding:4px 8px; border-radius:6px; font-weight:600}
@@ -305,5 +306,11 @@ html,body, .panel, .site-header, .card{transition:background-color .22s ease,col
 
 /* Ensure page content stacks above the backdrop */
 body > *{position:relative; z-index:1}
+
+/* styles.css */
+.auto-refresh { display:inline-flex; align-items:center; gap:.5rem; }
+#auto-refresh { padding:.4rem .6rem; border-radius:.5rem; }
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
 
 /* End of stylesheet */
